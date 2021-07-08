@@ -4,6 +4,8 @@ import com.example.demo.security.userprincal.UserPrinciple;
 import io.jsonwebtoken.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
@@ -12,13 +14,20 @@ import java.util.Date;
 
 
 @Component
+@PropertySource("file:c:/properties/application.properties ")
 public class JwtProvider {
 
     //ghi log de xem token co hieu luc k?
     private static final Logger logger = LoggerFactory.getLogger(JwtProvider.class);
 
-    private String jwtSecret = "anh94701@gmail.com";
-    private int jwtExpiration = 86400; //thoi gian song cua no tren he thong _ 1 ngay
+    @Value("${app.jwtSecret}")
+    private String jwtSecret;
+
+    @Value("${app.jwtExpiration}")
+    private int jwtExpiration;
+
+//    private String jwtSecret = "anh94701@gmail.com";
+//    private int jwtExpiration = 86400; //thoi gian song cua no tren he thong _ 1 ngay
 
     //tao token
     public String createToken(Authentication authentication) {

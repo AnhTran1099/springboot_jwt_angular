@@ -7,6 +7,8 @@ import com.example.demo.dto.response.ResponseMessage;
 import com.example.demo.model.Role;
 import com.example.demo.model.RoleName;
 import com.example.demo.model.User;
+import com.example.demo.repository.IRoleRepository;
+import com.example.demo.repository.IUserRepository;
 import com.example.demo.security.jwt.JwtProvider;
 import com.example.demo.security.userprincal.UserPrinciple;
 import com.example.demo.service.impl.RoleServiceImpl;
@@ -29,10 +31,14 @@ import java.util.Set;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+//    @Autowired
+//    UserServiceImpl userService;
     @Autowired
-    UserServiceImpl userService;
+    IUserRepository userRepository;
     @Autowired
     RoleServiceImpl roleService;
+    @Autowired
+    IRoleRepository roleRepository;
     @Autowired
     PasswordEncoder passwordEncoder;
     @Autowired
@@ -40,42 +46,56 @@ public class AuthController {
     @Autowired
     JwtProvider jwtProvider;
     @PostMapping("/signup")
-    public ResponseEntity<?> register(@Valid @RequestBody SignUpForm signUpForm){
-        if(userService.existsByUsername(signUpForm.getUsername())){
-            return new ResponseEntity<>(new ResponseMessage("nouser"), HttpStatus.OK);
+    public ResponseEntity<?> register(@Valid @RequestBody SignUpForm signUpForm) {
+        if (userRepository.existsByUsername(signUpForm.getUsername())) {
+//            return new ResponseEntity<>(new ResponseMessage("nouser"), HttpStatus.OK);
+            return ResponseEntity
+                    .badRequest()
+                    .body(new ResponseMessage("Error: Username is already taken!"));
         }
-        if(userService.existsByEmail(signUpForm.getEmail())){
-            return new ResponseEntity<>(new ResponseMessage("noemail"), HttpStatus.OK);
+        if (userRepository.existsByEmail(signUpForm.getEmail())) {
+//            return new ResponseEntity<>(new ResponseMessage("noemail"), HttpStatus.OK);
+            return ResponseEntity
+                    .badRequest()
+                    .body(new ResponseMessage("Error: Email is already in use!"));
         }
         User user = new User(signUpForm.getName(), signUpForm.getUsername(), signUpForm.getEmail(), passwordEncoder.encode(signUpForm.getPassword()));
         Set<String> strRoles = signUpForm.getRoles();
         Set<Role> roles = new HashSet<>();
-        strRoles.forEach(role ->{
-            switch (role){
-                case "admin":
-                    Role adminRole = roleService.findByName(RoleName.ADMIN).orElseThrow(()->
-                            new RuntimeException("Role NOT FOUND"));
-                    roles.add(adminRole);
-                    break;
-                case "pm":
-                    Role pmRole = roleService.findByName(RoleName.PM).orElseThrow(
-                            ()-> new RuntimeException("Role NOT FOUND"));
-                            roles.add(pmRole);
-                            break;
-                default: Role userRole = roleService.findByName(RoleName.USER).orElseThrow(()->new RuntimeException("ROLE NOT FOUND"));
-                roles.add(userRole);
-            }
-        });
-        user.setRoles(roles);
-        userService.save(user);
-        return new ResponseEntity<>(new ResponseMessage("create success!!!"), HttpStatus.OK);
-    }
+        if (strRoles == null) {
+            Role userRole = roleRepository.findByName(RoleName.USER)
+                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+            roles.add(userRole);
+        } else {
+            strRoles.forEach(role -> {
+                switch (role) {
+                    case "admin":
+                        Role adminRole = roleService.findByName(RoleName.ADMIN).orElseThrow(() ->
+                                new RuntimeException("Role NOT FOUND"));
+                        roles.add(adminRole);
+                        break;
+                    case "pm":
+                        Role pmRole = roleService.findByName(RoleName.PM).orElseThrow(
+                                () -> new RuntimeException("Role NOT FOUND"));
+                        roles.add(pmRole);
+                        break;
+                    default:
+                        Role userRole = roleService.findByName(RoleName.USER).orElseThrow(() -> new RuntimeException("ROLE NOT FOUND"));
+                        roles.add(userRole);
+                }
+            });
+        }
+            user.setRoles(roles);
+            userRepository.save(user);
+            return new ResponseEntity<>(new ResponseMessage("create success!!!"), HttpStatus.OK);
+        }
     @PostMapping("/signin")
     public ResponseEntity<?> login(@Valid @RequestBody SignInForm signInForm) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(signInForm.getUsername(), signInForm.getPassword()));
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+//        SecurityContextHolder.getContext().setAuthentication(authentication);
         String token = jwtProvider.createToken(authentication);
+
         UserPrinciple userPrinciple = (UserPrinciple) authentication.getPrincipal();
         return ResponseEntity.ok(new JwtResponse(token,userPrinciple.getName(), userPrinciple.getAuthorities()));
 
